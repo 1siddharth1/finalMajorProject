@@ -17,11 +17,16 @@ class App {
   
   initializeMiddleware() {
     this.app.use(helmet());
+    
+    // Dynamic CORS to allow your frontend from localhost AND any hosted domain (Vercel/Netlify)
     this.app.use(cors({
-      origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: function(origin, callback) {
+        callback(null, true); // Temporarily allow all origins to make frontend deployment easy
+      },
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
+    
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     this.app.use((req, res, next) => { logger.info(`${req.method} ${req.url}`); next(); });
