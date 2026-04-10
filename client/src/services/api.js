@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Use the production Render URL if set, otherwise fallback to local development
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Automatically use the live Render backend, even if Vercel doesn't have .env variables set
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://finalmajorproject-1v4q.onrender.com/api';
 
 const api = axios.create({ baseURL: BASE_URL });
 

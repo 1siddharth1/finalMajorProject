@@ -18,6 +18,9 @@ class App {
   initializeMiddleware() {
     this.app.use(helmet());
     
+    // CRITICAL FOR RENDER: Trust the reverse proxy so rate-limiter doesn't block innocent users
+    this.app.set('trust proxy', 1);
+    
     // Dynamic CORS to allow your frontend from localhost AND any hosted domain (Vercel/Netlify)
     this.app.use(cors({
       origin: function(origin, callback) {

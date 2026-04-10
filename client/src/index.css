@@ -1127,3 +1127,67 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 768px) {
+  /* Fix container padding */
+  .container {
+    padding: 1rem;
+  }
+
+  /* Fix Auth pages */
+  .auth-card {
+    padding: 1.5rem;
+    border-radius: 1rem;
+  }
+  .hero-title {
+    font-size: 2.25rem;
+  }
+
+  /* Sidebar behavior on mobile: make it an overlay */
+  .app-layout {
+    position: relative;
+  }
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    transform: translateX(0);
+  }
+  .sidebar-collapsed {
+    transform: translateX(-100%);
+    width: var(--sidebar-width); /* don't shrink it, just hide it */
+  }
+
+  /* App main structure */
+  .app-main {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+  .app-topbar {
+    padding: 0 1rem;
+  }
+  .app-content {
+    padding: 1rem;
+  }
+
+  /* Document Viewer Mobile Padding */
+  .document-viewer {
+    padding: 1.5rem 1rem;
+    min-height: 300px;
+  }
+  .document-viewer h1 {
+    font-size: 1.5rem;
+  }
+  .document-viewer h2 {
+    font-size: 1.25rem;
+  }
+  .topbar-greeting {
+    font-size: 1rem;
+  }
+  .topbar-export-btn {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+}
