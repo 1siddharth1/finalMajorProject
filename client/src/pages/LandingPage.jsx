@@ -103,7 +103,7 @@ function LandingPage() {
           <Sparkles className="inline-block mr-4 text-secondary" size={48} />
           DocuMagic AI
         </h1>
-        <p className="hero-subtitle">Transform your raw text into beautifully structured HTML instantly</p>
+        <p className="hero-subtitle">Transform your raw text into beautifully structured documents instantly</p>
         <p className="hero-cta-hint">
           ✨ <Link to="/signup" className="auth-link">Sign up free</Link> to save documents to your personal library
         </p>
