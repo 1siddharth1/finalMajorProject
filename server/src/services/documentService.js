@@ -1,81 +1,117 @@
 import { Document } from '../models/Document.js';
 import { Cache } from '../models/Cache.js';
+import storageService from './storageService.js';
 import crypto from 'crypto';
 import logger from '../utils/logger.js';
 
 class DocumentService {
-  async createDocument(documentData) {
-    try {
-      const document = new Document(documentData);
-      await document.save();
-      logger.info(`Document created in DB: ${document._id}`);
-      return document;
-    } catch (error) {
-      logger.error('Document creation failed:', error);
-      throw error;
-    }
+  /**
+   * Create a new document: writes .txt file + saves DB record.
+   * @param {string} userId - Authenticated user's _id
+   * @param {{ title, htmlContent, tags, metadata }} data
+   */
+  async createDocument(userId, { title, htmlContent, tags = [], metadata = {} }) {
+    // Create a temporary DB record to get an _id for the filename
+    const doc = new Document({
+      title: title || 'Untitled Document',
+      userId,
+      filePath: 'pending', // will be updated after file is written
+      tags,
+      metadata
+    });
+    await doc.save();
+
+    // Write the HTML content to the user's .txt file
+    const relativePath = await storageService.saveDocument(userId, doc._id.toString(), htmlContent);
+
+    // Update the DB record with the real file path
+    doc.filePath = relativePath;
+    await doc.save();
+
+    logger.info(`Document created: ${doc._id} for user ${userId}`);
+    return doc;
   }
 
-  async getDocumentById(id, incrementViews = true) {
-    const document = await Document.findById(id);
-    if (document && incrementViews) {
-      document.views += 1;
-      await document.save();
-    }
-    return document;
-  }
-
-  async getAllDocuments(filters = {}, page = 1, limit = 10) {
+  /**
+   * Get all documents for a user (metadata only, no file content).
+   */
+  async getDocumentsByUser(userId, page = 1, limit = 50) {
     const skip = (page - 1) * limit;
-    const query = {};
-    if (filters.isPublic !== undefined) query.isPublic = filters.isPublic;
-    if (filters.tags && filters.tags.length > 0) query.tags = { $in: filters.tags };
-    
     const [documents, total] = await Promise.all([
-      Document.find(query)
+      Document.find({ userId })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('-content.raw'),
-      Document.countDocuments(query)
+        .select('-filePath'), // Don't expose internal path to client
+      Document.countDocuments({ userId })
     ]);
-    
-    return { documents, total, page, totalPages: Math.ceil(total / limit), hasMore: page * limit < total };
+    return { documents, total, page, totalPages: Math.ceil(total / limit) };
   }
 
-  async updateDocument(id, updateData) {
-    const document = await Document.findByIdAndUpdate(
-      id, { ...updateData, 'metadata.updatedAt': new Date() }, { new: true, runValidators: true }
+  /**
+   * Get a single document's metadata + read its file content.
+   */
+  async getDocumentById(userId, docId) {
+    const doc = await Document.findOne({ _id: docId, userId });
+    if (!doc) return null;
+
+    doc.views += 1;
+    await doc.save();
+
+    const htmlContent = await storageService.readDocument(userId, docId);
+    return { ...doc.toJSON(), htmlContent };
+  }
+
+  /**
+   * Rename a document (title only).
+   */
+  async renameDocument(userId, docId, newTitle) {
+    const doc = await Document.findOneAndUpdate(
+      { _id: docId, userId },
+      { title: newTitle },
+      { new: true, runValidators: true }
     );
-    if (document) {
-      await this.invalidateCache(`document:${id}`);
-      logger.info(`Document updated: ${id}`);
-    }
-    return document;
+    return doc;
   }
 
-  async deleteDocument(id) {
-    const document = await Document.findByIdAndDelete(id);
-    if (document) {
-      await this.invalidateCache(`document:${id}`);
-      logger.info(`Document deleted: ${id}`);
+  /**
+   * Update a document's content (overwrites file + optionally updates title/tags).
+   */
+  async updateDocument(userId, docId, { title, htmlContent, tags }) {
+    const updateFields = {};
+    if (title !== undefined) updateFields.title = title;
+    if (tags !== undefined) updateFields.tags = tags;
+
+    if (htmlContent !== undefined) {
+      await storageService.updateDocument(userId, docId, htmlContent);
     }
-    return document;
+
+    const doc = await Document.findOneAndUpdate(
+      { _id: docId, userId },
+      updateFields,
+      { new: true, runValidators: true }
+    );
+    return doc;
   }
 
-  async searchDocuments(query, page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
-    return await Document.find(
-      { $text: { $search: query } },
-      { score: { $meta: 'textScore' } }
-    ).sort({ score: { $meta: 'textScore' } }).skip(skip).limit(limit);
+  /**
+   * Delete a document: removes the file and the DB record.
+   */
+  async deleteDocument(userId, docId) {
+    const doc = await Document.findOneAndDelete({ _id: docId, userId });
+    if (doc) {
+      await storageService.deleteDocument(userId, docId);
+      logger.info(`Document deleted: ${docId} for user ${userId}`);
+    }
+    return doc;
   }
+
+  // ─── Cache helpers (used by AI routes for repeated text) ─────────────────
 
   async cacheDocumentFormatting(rawText, formattedHtml) {
     const key = this.generateCacheKey(rawText);
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
-    
     await Cache.findOneAndUpdate(
       { key }, { value: formattedHtml, expiresAt }, { upsert: true, new: true }
     );
@@ -94,13 +130,6 @@ class DocumentService {
 
   generateCacheKey(text) {
     return crypto.createHash('md5').update(text).digest('hex');
-  }
-
-  async invalidateCache(pattern) {
-    const keys = await Cache.find({ key: { $regex: pattern } });
-    if (keys.length > 0) {
-      await Cache.deleteMany({ _id: { $in: keys.map(k => k._id) } });
-    }
   }
 }
 

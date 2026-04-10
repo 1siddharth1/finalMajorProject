@@ -4,32 +4,32 @@ const documentSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    maxlength: 200
   },
-  content: {
-    raw: { type: String, required: true },
-    formatted: { type: String },
-    html: { type: String }
+  // Owner reference
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true
   },
-  metadata: {
-    llmSource: { type: String, enum: ['chatgpt', 'claude', 'deepseek', 'gemini', 'other'], default: 'gemini' },
-    tokensUsed: { type: Number, default: 0 },
-    processingTime: { type: Number },
-    formatVersion: { type: String, default: '1.0' }
+  // Relative path to the .txt file on disk (relative to config.storagePath)
+  filePath: {
+    type: String,
+    required: true
   },
   tags: [String],
-  isPublic: { type: Boolean, default: true },
-  views: { type: Number, default: 0 }
-}, {
-  timestamps: true
-});
+  views: { type: Number, default: 0 },
+  metadata: {
+    aiModel: { type: String, default: 'gemini-1.5-flash' },
+    processingTime: { type: Number, default: 0 },
+    formatVersion: { type: String, default: '1.0' }
+  }
+}, { timestamps: true });
 
-// Index for search
-documentSchema.index({ title: 'text', 'content.raw': 'text' });
-
-// Virtual for URL
-documentSchema.virtual('url').get(function() {
-  return `/documents/${this._id}`;
-});
+documentSchema.index({ userId: 1, createdAt: -1 });
+documentSchema.index({ title: 'text' });
 
 export const Document = mongoose.model('Document', documentSchema);
+

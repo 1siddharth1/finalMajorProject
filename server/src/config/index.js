@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: '../.env' }); // or just dotenv.config() if root
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -13,14 +12,23 @@ export const config = {
   aiModel: process.env.AI_MODEL || 'gemini-1.5-flash',
   geminiApiKey: process.env.GEMINI_API_KEY,
   env: process.env.NODE_ENV || 'development',
-  
-  rateLimit: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+
+  jwt: {
+    secret: process.env.JWT_SECRET || 'fallback_secret_change_this',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
   },
-  
+
+  storagePath: process.env.STORAGE_PATH
+    ? path.resolve(process.env.STORAGE_PATH)
+    : path.join(__dirname, '../../storage'),
+
+  rateLimit: {
+    windowMs: 15 * 60 * 1000,
+    max: 100
+  },
+
   cache: {
-    ttl: 3600, // 1 hour in seconds
-    maxSize: 100 // max number of cached items
+    ttl: 3600,
+    maxSize: 100
   }
 };

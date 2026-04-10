@@ -17,7 +17,11 @@ class App {
   
   initializeMiddleware() {
     this.app.use(helmet());
-    this.app.use(cors());
+    this.app.use(cors({
+      origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization']
+    }));
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     this.app.use((req, res, next) => { logger.info(`${req.method} ${req.url}`); next(); });

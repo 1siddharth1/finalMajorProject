@@ -2,57 +2,53 @@ import documentService from '../services/documentService.js';
 import logger from '../utils/logger.js';
 
 export const documentController = {
-  async create(req, res, next) {
-    try {
-      const { title, content, tags, metadata } = req.body;
-      const document = await documentService.createDocument({
-        title, content, tags: tags || [], metadata: metadata || {}
-      });
-      res.status(201).json({ success: true, data: document, message: 'Document created successfully' });
-    } catch (error) { next(error); }
-  },
-  
+  /** GET /api/documents — list all documents for the authenticated user */
   async getAll(req, res, next) {
     try {
-      const { page = 1, limit = 10, tags, isPublic } = req.query;
-      const filters = {};
-      if (tags) filters.tags = tags.split(',');
-      if (isPublic !== undefined) filters.isPublic = isPublic === 'true';
-      const result = await documentService.getAllDocuments(filters, parseInt(page), parseInt(limit));
+      const { page = 1, limit = 50 } = req.query;
+      const result = await documentService.getDocumentsByUser(
+        req.user.id, parseInt(page), parseInt(limit)
+      );
       res.json({ success: true, ...result });
     } catch (error) { next(error); }
   },
-  
+
+  /** GET /api/documents/:id */
   async getOne(req, res, next) {
     try {
-      const document = await documentService.getDocumentById(req.params.id);
-      if (!document) return res.status(404).json({ error: 'Document not found' });
-      res.json({ success: true, data: document });
+      const doc = await documentService.getDocumentById(req.user.id, req.params.id);
+      if (!doc) return res.status(404).json({ error: 'Document not found.' });
+      res.json({ success: true, data: doc });
     } catch (error) { next(error); }
   },
-  
+
+  /** PUT /api/documents/:id — update title and/or content */
   async update(req, res, next) {
     try {
-      const document = await documentService.updateDocument(req.params.id, req.body);
-      if (!document) return res.status(404).json({ error: 'Document not found' });
-      res.json({ success: true, data: document, message: 'Document updated successfully' });
+      const { title, htmlContent, tags } = req.body;
+      const doc = await documentService.updateDocument(req.user.id, req.params.id, { title, htmlContent, tags });
+      if (!doc) return res.status(404).json({ error: 'Document not found.' });
+      res.json({ success: true, data: doc, message: 'Document updated successfully.' });
     } catch (error) { next(error); }
   },
-  
+
+  /** PATCH /api/documents/:id/rename — rename only */
+  async rename(req, res, next) {
+    try {
+      const { title } = req.body;
+      if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required.' });
+      const doc = await documentService.renameDocument(req.user.id, req.params.id, title.trim());
+      if (!doc) return res.status(404).json({ error: 'Document not found.' });
+      res.json({ success: true, data: doc, message: 'Document renamed.' });
+    } catch (error) { next(error); }
+  },
+
+  /** DELETE /api/documents/:id */
   async delete(req, res, next) {
     try {
-      const document = await documentService.deleteDocument(req.params.id);
-      if (!document) return res.status(404).json({ error: 'Document not found' });
-      res.json({ success: true, message: 'Document deleted successfully' });
-    } catch (error) { next(error); }
-  },
-  
-  async search(req, res, next) {
-    try {
-      const { q, page = 1, limit = 20 } = req.query;
-      if (!q) return res.status(400).json({ error: 'Search query required' });
-      const results = await documentService.searchDocuments(q, parseInt(page), parseInt(limit));
-      res.json({ success: true, data: results, query: q });
+      const doc = await documentService.deleteDocument(req.user.id, req.params.id);
+      if (!doc) return res.status(404).json({ error: 'Document not found.' });
+      res.json({ success: true, message: 'Document deleted successfully.' });
     } catch (error) { next(error); }
   }
 };
